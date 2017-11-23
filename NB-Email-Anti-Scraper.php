@@ -24,17 +24,19 @@ function nb_generateRandomString($length = 10) {
 }
 
 function nb_encodeEmail($email) {
-	$oldEmail = $email;
+	if (substr($email, 0, strlen("mailto:")) == "mailto:") {
+		$oldEmail = "mailto:" . sanitize_email(substr($email, strlen("mailto:")));
+	} else {
+		$oldEmail = sanitize_email($email);
+	}
 	$email = "";
 	$rs = nb_generateRandomString(rand(4, 10));
-	// echo "RS: ".$rs."<br />";
-	// echo "oldEmail: ".$oldEmail."<br />";
+
 	for ($i = 0; $i < strlen($oldEmail); $i++) {
 		$email .= (substr($oldEmail, $i, 1) . $rs);
 	}
-	// echo "email: ".$email."<br />";
+
 	$encoded = ("nbemail:" . strlen($rs) . ":" . base64_encode($email));
-	// echo "Encoded: ". nb_decodeEmail($encoded)."<br />";
 
 	return $encoded;
 }
@@ -43,11 +45,6 @@ function nb_decodeEmail($encrypted) {
 	list($code, $saltL, $encrypted) = explode(":", $encrypted, 3);
 	$saltL = (int) $saltL;
 
-	// echo "Encrypted:". $encrypted."\r\n";
-	// echo "Decrypted:". base64_decode($encrypted)."\r\n";
-
-	// echo $encrypted."\r\n";
-	// echo base64_decode($encrypted)."\r\n";
 	$email = "";
 	switch ($code) {
 		case "nbemail":
@@ -71,14 +68,14 @@ function nb_decodeEmail($encrypted) {
 function nb_email_js_encoder($content) {
 	$omd5 = md5($content);
 	$content = preg_replace_callback("/mailto:[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}/", function ($match) {
-		// echo "<pre>".print_r($match,true)."</pre>";
+
 		return nb_encodeEmail($match[0]);
-		// return str_replace("@","__##__",$match[0]);
+
 	}, $content);
 	$content = preg_replace_callback("/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,4}/", function ($match) {
-		// echo "<pre>".print_r($match,true)."</pre>";
+
 		return "<span class='nbemail' data-nb-email='" . nb_encodeEmail($match[0]) . "'></span>";
-		// return str_replace("@","__##__",$match[0]);
+
 	}, $content);
 	$nmd5 = md5($content);
 	return $content;
@@ -88,24 +85,27 @@ add_action('wp_ajax_nb_email', 'nb_decode_ajax');
 add_action('wp_ajax_nopriv_nb_email', 'nb_decode_ajax');
 
 function nb_decode_ajax() {
-	// print_r($_POST);
+	check_ajax_referer("nbemailnonce_" . md5_file(__FILE__), 'secure');
 	$output = array();
 	if (isset($_POST["en_emails"]) && is_array($_POST["en_emails"]) && count($_POST["en_emails"])) {
-		// print_R($_POST["en_emails"]);
-		foreach ($_POST["en_emails"] as $en_email) {
-			$en_email = preg_replace_callback("/[^a-zA-Z0-9\=\,\:]/", function ($match) {
-				return "";
-			}, $en_email);
 
-			$output[$en_email] = explode("@", nb_decodeEmail($en_email), 2);
+		foreach ($_POST["en_emails"] as $encoded_email) {
+			$encoded_email = preg_replace_callback("/[^a-zA-Z0-9\=\,\:]/", function ($match) {
+				return "";
+			}, $encoded_email);
+
+			$output[$encoded_email] = explode("@", nb_decodeEmail($encoded_email), 2);
 		}
 	}
-	// print_r($_POST);
+
 	echo json_encode($output);
 	die();
 }
 
 function nb_footer() {
+
+	$ajax_nonce = wp_create_nonce("nbemailnonce_" . md5_file(__FILE__));
+
 	?>
 	<style type='text/css'>
 		.nbemail { color:inherit;background:inherit; text-decoration: inherit; font:inherit;}
@@ -120,7 +120,7 @@ function nb_footer() {
 		$("span[data-nb-email^='nbemail:']").each(function (k,v) {
 			nbemail_addresses.push($(this).attr("data-nb-email"));
 		});
-		$.post("<?php echo admin_url('admin-ajax.php'); ?>",{action:'nb_email',en_emails:nbemail_addresses},function (output) {
+		$.post("<?php echo admin_url('admin-ajax.php'); ?>",{action:'nb_email',en_emails:nbemail_addresses, secure:'<?php echo $ajax_nonce; ?>'},function (output) {
 			$("a[href^='nbemail:']").each(function (k,v) {
 				if (typeof output[jQuery(this).attr("href")] != undefined) {
 					$(this).attr("href",output[jQuery(this).attr("href")].join("@"));
