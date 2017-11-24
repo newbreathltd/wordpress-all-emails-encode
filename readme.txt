@@ -1,10 +1,10 @@
 === Plugin Name ===
 Contributors: newbreath
-Donate link: http://newbreath.co.uk/
-Tags: antispam, email, antiscapper
+Donate link: https://newbreath.co.uk/plugins/email-antiscrapper/
+Tags: antispam, email, antiscapper, email antiscapper
 Requires at least: 3.0.1
-Tested up to: 4.6
-Stable tag: 4.6
+Tested up to: 4.9
+Stable tag: 4.9
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -39,6 +39,8 @@ No, only the elements in the content and widgets are encrypted.
 == Changelog ==
 
 = 1.0 =
+* Added encoding of emails contained in comment content.
+* Added ajax_nonce protection
 * Added filter/encode to a content.
 * Added filter/encode to a widget.
 
